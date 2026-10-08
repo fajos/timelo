@@ -1,18 +1,9 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Invoice, InvoiceItem, Client, UserSettings } from '../types';
+import { formatCurrency } from '../utils/formatters';
 
-export function formatCurrency(cents: number, currencyCode = 'USD'): string {
-  const amount = cents / 100;
-  try {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currencyCode,
-    }).format(amount);
-  } catch {
-    return `${currencyCode} ${amount.toFixed(2)}`;
-  }
-}
+export { formatCurrency };
 
 export async function generateInvoicePdfHtml(
   invoice: Invoice,

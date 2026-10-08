@@ -1,26 +1,32 @@
 {
   "expo": {
-    "name": "Timelo",
+    "name": "Timelo - Track & Invoice",
     "slug": "timelo",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "splash": {
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#0F172A"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.fajostech.timelo"
+      "bundleIdentifier": "com.fajostech.timelo",
+      "buildNumber": "1.0.0"
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F172A"
       },
-      "package": "com.fajostech.timelo"
+      "package": "com.fajostech.timelo",
+      "versionCode": 1
     },
     "plugins": [
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-notifications"
     ],
     "extra": {
       "eas": {

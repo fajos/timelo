@@ -6,10 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  Image,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { getUserSettings, updateUserSettings } from '../db/repository';
 import { UserSettings } from '../types';
 import { useSubscriptionStore } from '../store/subscriptionStore';
@@ -20,6 +23,7 @@ export const SettingsScreen: React.FC = () => {
   const { isPro } = useSubscriptionStore();
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [paywallReason, setPaywallReason] = useState<string>('');
+  const [privacyModalVisible, setPrivacyModalVisible] = useState(false);
 
   const [businessName, setBusinessName] = useState('');
   const [businessEmail, setBusinessEmail] = useState('');
@@ -42,9 +46,34 @@ export const SettingsScreen: React.FC = () => {
     loadData();
   }, []);
 
+  const handlePickLogo = async () => {
+    if (!isPro) {
+      setPaywallReason('Custom business logo on invoices requires Timelo Pro.');
+      setPaywallVisible(true);
+      return;
+    }
+
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permissionResult.granted) {
+      Alert.alert('Permission Denied', 'Permission to access gallery is required to upload a logo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [3, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setLogoUri(result.assets[0].uri);
+    }
+  };
+
   const handleSave = async () => {
     if (logoUri.trim() && !isPro) {
-      setPaywallReason('Custom business logo on invoices is a Timelo Pro feature. Upgrade to unlock!');
+      setPaywallReason('Custom business logo on invoices is a Timelo Pro feature.');
       setPaywallVisible(true);
       return;
     }
@@ -153,36 +182,34 @@ export const SettingsScreen: React.FC = () => {
             placeholder="US123456789"
           />
 
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-            <Text style={styles.label}>Logo Image URL</Text>
+          {/* Logo Picker Section */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+            <Text style={styles.label}>Business Logo (Pro)</Text>
             {!isPro && (
-              <TouchableOpacity
-                style={styles.lockBadge}
-                onPress={() => {
-                  setPaywallReason('Custom business logo on invoices requires Timelo Pro.');
-                  setPaywallVisible(true);
-                }}
-              >
+              <View style={styles.lockBadge}>
                 <Ionicons name="lock-closed" size={10} color="#B45309" />
                 <Text style={styles.lockBadgeText}>PRO ONLY</Text>
-              </TouchableOpacity>
+              </View>
             )}
           </View>
-          <TextInput
-            style={styles.input}
-            value={logoUri}
-            onChangeText={setLogoUri}
-            placeholder="https://example.com/my-logo.png"
-            editable={isPro}
-            onTouchStart={() => {
-              if (!isPro) {
-                setPaywallReason('Custom business logo on invoices requires Timelo Pro.');
-                setPaywallVisible(true);
-              }
-            }}
-          />
 
-          <Text style={[styles.label, { marginTop: 10 }]}>Default Payment Instructions</Text>
+          <View style={styles.logoPickerContainer}>
+            {logoUri ? (
+              <Image source={{ uri: logoUri }} style={styles.logoPreview} resizeMode="contain" />
+            ) : (
+              <View style={styles.logoPlaceholder}>
+                <Ionicons name="image-outline" size={28} color="#94A3B8" />
+                <Text style={styles.logoPlaceholderText}>No logo selected</Text>
+              </View>
+            )}
+
+            <TouchableOpacity style={styles.pickLogoBtn} onPress={handlePickLogo}>
+              <Ionicons name="cloud-upload-outline" size={16} color="#2563EB" />
+              <Text style={styles.pickLogoBtnText}>{logoUri ? 'Change Logo' : 'Upload Logo'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[styles.label, { marginTop: 12 }]}>Default Payment Instructions</Text>
           <TextInput
             style={[styles.input, { height: 80 }]}
             multiline
@@ -201,16 +228,10 @@ export const SettingsScreen: React.FC = () => {
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={styles.cardTitle}>Data Export (CSV)</Text>
             {!isPro && (
-              <TouchableOpacity
-                style={styles.lockBadge}
-                onPress={() => {
-                  setPaywallReason('CSV data export is a Timelo Pro feature.');
-                  setPaywallVisible(true);
-                }}
-              >
+              <View style={styles.lockBadge}>
                 <Ionicons name="lock-closed" size={10} color="#B45309" />
                 <Text style={styles.lockBadgeText}>PRO ONLY</Text>
-              </TouchableOpacity>
+              </View>
             )}
           </View>
           <Text style={styles.exportSub}>Export your timesheet and invoice records into standard CSV files.</Text>
@@ -225,6 +246,15 @@ export const SettingsScreen: React.FC = () => {
             <Text style={styles.exportBtnText}>Export Invoices (CSV)</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Legal & Privacy Policy Link */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Legal & Privacy</Text>
+          <TouchableOpacity style={styles.exportBtn} onPress={() => setPrivacyModalVisible(true)}>
+            <Ionicons name="shield-checkmark-outline" size={18} color="#2563EB" />
+            <Text style={styles.exportBtnText}>Privacy Policy & Terms</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <PaywallModal
@@ -232,6 +262,26 @@ export const SettingsScreen: React.FC = () => {
         onClose={() => setPaywallVisible(false)}
         reason={paywallReason || 'Upgrade to Timelo Pro for unlimited clients, clean PDF invoices with custom logo, and CSV data exports!'}
       />
+
+      {/* Privacy Policy Modal */}
+      <Modal visible={privacyModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Privacy Policy & Terms</Text>
+            <ScrollView style={{ maxHeight: 300, marginVertical: 10 }}>
+              <Text style={styles.privacyText}>
+                <strong>Timelo Privacy Policy</strong>{'\n\n'}
+                1. <strong>Local Data Storage</strong>: Timelo stores all client details, projects, timesheets, and invoice records locally on your device using encrypted SQLite database storage. We do not collect or transmit your client data to any external server.{'\n\n'}
+                2. <strong>Subscriptions</strong>: In-app purchases are processed securely through RevenueCat, Apple App Store, and Google Play Billing. No payment credentials or credit card numbers are stored by Timelo.{'\n\n'}
+                3. <strong>Permissions</strong>: Gallery access is requested solely when you choose to upload a custom business logo for your invoice header.
+              </Text>
+            </ScrollView>
+            <TouchableOpacity style={styles.saveBtn} onPress={() => setPrivacyModalVisible(false)}>
+              <Text style={styles.saveBtnText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -323,6 +373,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#0F172A',
   },
+  logoPickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
+  },
+  logoPreview: {
+    width: 80,
+    height: 40,
+  },
+  logoPlaceholder: {
+    width: 80,
+    height: 40,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoPlaceholderText: {
+    fontSize: 9,
+    color: '#64748B',
+  },
+  pickLogoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  pickLogoBtnText: {
+    color: '#2563EB',
+    fontWeight: '700',
+    fontSize: 12,
+    marginLeft: 6,
+  },
   saveBtn: {
     backgroundColor: '#2563EB',
     borderRadius: 12,
@@ -354,5 +444,27 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
     marginLeft: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 12,
+  },
+  privacyText: {
+    fontSize: 13,
+    color: '#334155',
+    lineHeight: 18,
   },
 });

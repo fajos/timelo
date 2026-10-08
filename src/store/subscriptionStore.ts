@@ -2,10 +2,9 @@ import { create } from 'zustand';
 import Purchases, { CustomerInfo, PurchasesOffering } from 'react-native-purchases';
 import { Platform } from 'react-native';
 
-const REVENUECAT_API_KEY_IOS = 'appl_mock_ios_key';
-const REVENUECAT_API_KEY_ANDROID = 'test_cMTUBsaDzXNcJgcKnQBhhaCRFhy';
+const REVENUECAT_API_KEY_IOS = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_IOS || 'appl_mock_ios_key';
+const REVENUECAT_API_KEY_ANDROID = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID || 'test_cMTUBsaDzXNcJgcKnQBhhaCRFhy';
 
-// Support common entitlement identifier names ('pro_access', 'pro', 'premium')
 function hasActiveProEntitlement(customerInfo: CustomerInfo | null): boolean {
   if (!customerInfo || !customerInfo.entitlements || !customerInfo.entitlements.active) {
     return false;
