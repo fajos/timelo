@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Timelo",
+    "slug": "timelo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0F172A"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fajostech.timelo"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F172A"
+      },
+      "package": "com.fajostech.timelo"
+    },
+    "plugins": [
+      "expo-sqlite"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "af6c4858-b978-4b19-826f-8412951b0b4d"
+      }
+    },
+    "owner": "timelo"
+  }
+}
