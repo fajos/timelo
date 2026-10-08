@@ -16,10 +16,12 @@ import {
   updateInvoiceStatus,
   deleteInvoice,
   getUserSettings,
+  getInvoiceCountForCurrentMonth,
 } from '../db/repository';
 import { Invoice, Client, InvoiceStatus } from '../types';
 import { formatCurrency, generateAndShareInvoicePdf } from '../services/pdfService';
 import { useSubscriptionStore } from '../store/subscriptionStore';
+import { PaywallModal } from '../components/PaywallModal';
 
 interface InvoiceListScreenProps {
   navigation: any;
@@ -30,6 +32,7 @@ export const InvoiceListScreen: React.FC<InvoiceListScreenProps> = ({ navigation
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Map<string, Client>>(new Map());
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [paywallVisible, setPaywallVisible] = useState(false);
 
   const loadData = async () => {
     const fetchedInvoices = await getAllInvoices();
@@ -45,6 +48,17 @@ export const InvoiceListScreen: React.FC<InvoiceListScreenProps> = ({ navigation
     loadData();
     return unsubscribe;
   }, [navigation]);
+
+  const handleCreateInvoicePress = async () => {
+    if (!isPro) {
+      const monthCount = await getInvoiceCountForCurrentMonth();
+      if (monthCount >= 3) {
+        setPaywallVisible(true);
+        return;
+      }
+    }
+    navigation.navigate('InvoiceBuilder');
+  };
 
   const handleSharePdf = async (invoice: Invoice) => {
     try {
@@ -149,7 +163,7 @@ export const InvoiceListScreen: React.FC<InvoiceListScreenProps> = ({ navigation
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Invoices</Text>
-        <TouchableOpacity style={styles.createBtn} onPress={() => navigation.navigate('InvoiceBuilder')}>
+        <TouchableOpacity style={styles.createBtn} onPress={handleCreateInvoicePress}>
           <Ionicons name="add" size={18} color="#FFFFFF" />
           <Text style={styles.createBtnText}>New Invoice</Text>
         </TouchableOpacity>
@@ -182,6 +196,12 @@ export const InvoiceListScreen: React.FC<InvoiceListScreenProps> = ({ navigation
             <Text style={styles.emptySub}>Tap "New Invoice" to pull unbilled time and generate a PDF.</Text>
           </View>
         }
+      />
+
+      <PaywallModal
+        visible={paywallVisible}
+        onClose={() => setPaywallVisible(false)}
+        reason="Free tier allows up to 3 invoices per month. Upgrade to Timelo Pro for unlimited invoices!"
       />
     </SafeAreaView>
   );

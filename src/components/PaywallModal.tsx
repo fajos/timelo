@@ -10,12 +10,12 @@ interface PaywallModalProps {
 }
 
 export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, reason }) => {
-  const { purchaseMonthly, purchaseAnnual, restorePurchases, toggleProMock } = useSubscriptionStore();
+  const { currentOffering, purchaseMonthly, purchaseAnnual, restorePurchases, toggleProMock } = useSubscriptionStore();
 
   const handleMonthly = async () => {
     const success = await purchaseMonthly();
     if (success) {
-      Alert.alert('Success!', 'Welcome to Pro!');
+      Alert.alert('Success!', 'Welcome to Timelo Pro!');
       onClose();
     }
   };
@@ -23,7 +23,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, re
   const handleAnnual = async () => {
     const success = await purchaseAnnual();
     if (success) {
-      Alert.alert('Success!', 'Welcome to Pro!');
+      Alert.alert('Success!', 'Welcome to Timelo Pro!');
       onClose();
     }
   };
@@ -31,12 +31,20 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, re
   const handleRestore = async () => {
     const success = await restorePurchases();
     if (success) {
-      Alert.alert('Restored!', 'Your Pro subscription has been restored.');
+      Alert.alert('Restored!', 'Your Timelo Pro subscription has been restored.');
       onClose();
     } else {
       Alert.alert('Notice', 'No previous Pro subscription found.');
     }
   };
+
+  const annualPriceStr = currentOffering?.annual?.product.priceString
+    ? `${currentOffering.annual.product.priceString} / year`
+    : '$39.00 / year';
+
+  const monthlyPriceStr = currentOffering?.monthly?.product.priceString
+    ? `${currentOffering.monthly.product.priceString} / month`
+    : '$5.99 / month';
 
   return (
     <Modal visible={visible} animationType="slide" transparent={true}>
@@ -51,7 +59,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, re
               <View style={styles.crownIcon}>
                 <Ionicons name="star" size={32} color="#F59E0B" />
               </View>
-              <Text style={styles.title}>Upgrade to Pro</Text>
+              <Text style={styles.title}>Upgrade to Timelo Pro</Text>
               <Text style={styles.subtitle}>
                 {reason || 'Unlock unlimited clients, clean PDF invoices with custom logo, and CSV data export.'}
               </Text>
@@ -82,14 +90,14 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ visible, onClose, re
                   <Text style={styles.badgeText}>BEST VALUE - SAVE 45%</Text>
                 </View>
                 <Text style={styles.cardTitle}>Annual Plan</Text>
-                <Text style={styles.cardPrice}>$39.00 / year</Text>
-                <Text style={styles.cardSubtext}>Just $3.25 / month</Text>
+                <Text style={styles.cardPrice}>{annualPriceStr}</Text>
+                <Text style={styles.cardSubtext}>Best value for active freelancers</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.card} onPress={handleMonthly}>
                 <Text style={styles.cardTitle}>Monthly Plan</Text>
-                <Text style={styles.cardPrice}>$5.99 / month</Text>
-                <Text style={styles.cardSubtext}>Cancel anytime</Text>
+                <Text style={styles.cardPrice}>{monthlyPriceStr}</Text>
+                <Text style={styles.cardSubtext}>Flexible monthly billing</Text>
               </TouchableOpacity>
             </View>
 

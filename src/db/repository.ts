@@ -8,10 +8,12 @@ export function generateId(): string {
 // ==================== CLIENTS ====================
 export async function getAllClients(): Promise<Client[]> {
   const db = await getDatabase();
-  return await db.getAllAsync<Client>('SELECT * FROM clients ORDER BY name ASC');
+  const rows = await db.getAllAsync<Client>('SELECT * FROM clients ORDER BY name ASC');
+  return rows || [];
 }
 
 export async function getClientById(id: string): Promise<Client | null> {
+  if (!id) return null;
   const db = await getDatabase();
   return await db.getFirstAsync<Client>('SELECT * FROM clients WHERE id = ?', [id]);
 }
@@ -29,10 +31,10 @@ export async function insertClient(client: Omit<Client, 'id' | 'created_at'>): P
      VALUES (?, ?, ?, ?, ?, ?)`,
     [
       newClient.id,
-      newClient.name,
-      newClient.email,
-      newClient.hourly_rate_cents,
-      newClient.currency,
+      newClient.name || '',
+      newClient.email || '',
+      newClient.hourly_rate_cents || 0,
+      newClient.currency || 'USD',
       newClient.created_at,
     ]
   );
@@ -41,14 +43,16 @@ export async function insertClient(client: Omit<Client, 'id' | 'created_at'>): P
 }
 
 export async function updateClient(client: Client): Promise<void> {
+  if (!client || !client.id) return;
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE clients SET name = ?, email = ?, hourly_rate_cents = ?, currency = ? WHERE id = ?`,
-    [client.name, client.email, client.hourly_rate_cents, client.currency, client.id]
+    [client.name || '', client.email || '', client.hourly_rate_cents || 0, client.currency || 'USD', client.id]
   );
 }
 
 export async function deleteClient(id: string): Promise<void> {
+  if (!id) return;
   const db = await getDatabase();
   await db.runAsync('DELETE FROM clients WHERE id = ?', [id]);
 }
@@ -56,15 +60,21 @@ export async function deleteClient(id: string): Promise<void> {
 // ==================== PROJECTS ====================
 export async function getAllProjects(): Promise<Project[]> {
   const db = await getDatabase();
-  return await db.getAllAsync<Project>('SELECT * FROM projects ORDER BY name ASC');
+  const rows = await db.getAllAsync<Project>('SELECT * FROM projects ORDER BY name ASC');
+  return rows || [];
 }
 
 export async function getProjectsByClient(clientId: string): Promise<Project[]> {
+  if (!clientId) return [];
   const db = await getDatabase();
-  return await db.getAllAsync<Project>('SELECT * FROM projects WHERE client_id = ? ORDER BY name ASC', [clientId]);
+  const rows = await db.getAllAsync<Project>('SELECT * FROM projects WHERE client_id = ? ORDER BY name ASC', [clientId]);
+  return rows || [];
 }
 
 export async function insertProject(project: Omit<Project, 'id' | 'created_at'>): Promise<Project> {
+  if (!project.client_id) {
+    throw new Error('Cannot insert project without a valid client_id');
+  }
   const db = await getDatabase();
   const newProject: Project = {
     ...project,
@@ -74,13 +84,14 @@ export async function insertProject(project: Omit<Project, 'id' | 'created_at'>)
 
   await db.runAsync(
     `INSERT INTO projects (id, client_id, name, color, created_at) VALUES (?, ?, ?, ?, ?)`,
-    [newProject.id, newProject.client_id, newProject.name, newProject.color, newProject.created_at]
+    [newProject.id, newProject.client_id, newProject.name || '', newProject.color || '#3B82F6', newProject.created_at]
   );
 
   return newProject;
 }
 
 export async function deleteProject(id: string): Promise<void> {
+  if (!id) return;
   const db = await getDatabase();
   await db.runAsync('DELETE FROM projects WHERE id = ?', [id]);
 }
@@ -89,6 +100,7 @@ export async function deleteProject(id: string): Promise<void> {
 export async function getAllTimeEntries(): Promise<TimeEntry[]> {
   const db = await getDatabase();
   const rows = await db.getAllAsync<any>('SELECT * FROM time_entries ORDER BY start_time DESC');
+  if (!rows) return [];
   return rows.map((r) => ({
     ...r,
     is_manual: Boolean(r.is_manual),
@@ -96,11 +108,13 @@ export async function getAllTimeEntries(): Promise<TimeEntry[]> {
 }
 
 export async function getUnbilledEntriesForClient(clientId: string): Promise<TimeEntry[]> {
+  if (!clientId) return [];
   const db = await getDatabase();
   const rows = await db.getAllAsync<any>(
     'SELECT * FROM time_entries WHERE client_id = ? AND (billed_invoice_id IS NULL OR billed_invoice_id = "") AND end_time IS NOT NULL ORDER BY start_time DESC',
     [clientId]
   );
+  if (!rows) return [];
   return rows.map((r) => ({
     ...r,
     is_manual: Boolean(r.is_manual),
@@ -120,14 +134,14 @@ export async function insertTimeEntry(entry: Omit<TimeEntry, 'id' | 'created_at'
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       newEntry.id,
-      newEntry.project_id,
-      newEntry.client_id,
-      newEntry.start_time,
-      newEntry.end_time,
-      newEntry.duration_seconds,
+      newEntry.project_id ? newEntry.project_id : null,
+      newEntry.client_id || '',
+      newEntry.start_time || new Date().toISOString(),
+      newEntry.end_time ?? null,
+      newEntry.duration_seconds || 0,
       newEntry.is_manual ? 1 : 0,
-      newEntry.billed_invoice_id,
-      newEntry.notes,
+      newEntry.billed_invoice_id ?? null,
+      newEntry.notes || '',
       newEntry.created_at,
     ]
   );
@@ -136,39 +150,45 @@ export async function insertTimeEntry(entry: Omit<TimeEntry, 'id' | 'created_at'
 }
 
 export async function updateTimeEntry(entry: TimeEntry): Promise<void> {
+  if (!entry || !entry.id) return;
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE time_entries SET project_id = ?, client_id = ?, start_time = ?, end_time = ?, duration_seconds = ?, is_manual = ?, billed_invoice_id = ?, notes = ? WHERE id = ?`,
     [
-      entry.project_id,
-      entry.client_id,
-      entry.start_time,
-      entry.end_time,
-      entry.duration_seconds,
+      entry.project_id || '',
+      entry.client_id || '',
+      entry.start_time || '',
+      entry.end_time ?? null,
+      entry.duration_seconds || 0,
       entry.is_manual ? 1 : 0,
-      entry.billed_invoice_id,
-      entry.notes,
+      entry.billed_invoice_id ?? null,
+      entry.notes || '',
       entry.id,
     ]
   );
 }
 
 export async function deleteTimeEntry(id: string): Promise<void> {
+  if (!id) return;
   const db = await getDatabase();
   await db.runAsync('DELETE FROM time_entries WHERE id = ?', [id]);
 }
 
 export async function markTimeEntriesBilled(entryIds: string[], invoiceId: string): Promise<void> {
+  if (!entryIds || entryIds.length === 0 || !invoiceId) return;
   const db = await getDatabase();
   for (const id of entryIds) {
-    await db.runAsync('UPDATE time_entries SET billed_invoice_id = ? WHERE id = ?', [invoiceId, id]);
+    if (id) {
+      await db.runAsync('UPDATE time_entries SET billed_invoice_id = ? WHERE id = ?', [invoiceId, id]);
+    }
   }
 }
 
 // ==================== INVOICES ====================
 export async function getAllInvoices(): Promise<Invoice[]> {
   const db = await getDatabase();
-  return await db.getAllAsync<Invoice>('SELECT * FROM invoices ORDER BY created_at DESC');
+  const rows = await db.getAllAsync<Invoice>('SELECT * FROM invoices ORDER BY created_at DESC');
+  return rows || [];
 }
 
 export async function getInvoiceCountForCurrentMonth(): Promise<number> {
@@ -189,12 +209,13 @@ export async function getNextInvoiceNumber(): Promise<string> {
 }
 
 export async function getInvoiceWithItems(id: string): Promise<{ invoice: Invoice; items: InvoiceItem[] } | null> {
+  if (!id) return null;
   const db = await getDatabase();
   const invoice = await db.getFirstAsync<Invoice>('SELECT * FROM invoices WHERE id = ?', [id]);
   if (!invoice) return null;
 
   const items = await db.getAllAsync<InvoiceItem>('SELECT * FROM invoice_items WHERE invoice_id = ?', [id]);
-  return { invoice, items };
+  return { invoice, items: items || [] };
 }
 
 export async function insertInvoice(
@@ -214,17 +235,17 @@ export async function insertInvoice(
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       newInvoice.id,
-      newInvoice.invoice_number,
-      newInvoice.client_id,
-      newInvoice.status,
-      newInvoice.issue_date,
-      newInvoice.due_date,
-      newInvoice.tax_percent,
-      newInvoice.subtotal_cents,
-      newInvoice.tax_cents,
-      newInvoice.total_cents,
-      newInvoice.notes,
-      newInvoice.payment_instructions,
+      newInvoice.invoice_number || 'INV-001',
+      newInvoice.client_id || '',
+      newInvoice.status || 'draft',
+      newInvoice.issue_date || new Date().toISOString().split('T')[0],
+      newInvoice.due_date || new Date().toISOString().split('T')[0],
+      newInvoice.tax_percent || 0,
+      newInvoice.subtotal_cents || 0,
+      newInvoice.tax_cents || 0,
+      newInvoice.total_cents || 0,
+      newInvoice.notes || '',
+      newInvoice.payment_instructions || '',
       newInvoice.created_at,
     ]
   );
@@ -234,7 +255,7 @@ export async function insertInvoice(
     await db.runAsync(
       `INSERT INTO invoice_items (id, invoice_id, description, hours, rate_cents, amount_cents)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [itemId, newInvoice.id, item.description, item.hours, item.rate_cents, item.amount_cents]
+      [itemId, newInvoice.id, item.description || '', item.hours || 0, item.rate_cents || 0, item.amount_cents || 0]
     );
   }
 
@@ -246,13 +267,14 @@ export async function insertInvoice(
 }
 
 export async function updateInvoiceStatus(id: string, status: InvoiceStatus): Promise<void> {
+  if (!id) return;
   const db = await getDatabase();
   await db.runAsync('UPDATE invoices SET status = ? WHERE id = ?', [status, id]);
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
+  if (!id) return;
   const db = await getDatabase();
-  // Unbill time entries associated with this invoice
   await db.runAsync('UPDATE time_entries SET billed_invoice_id = NULL WHERE billed_invoice_id = ?', [id]);
   await db.runAsync('DELETE FROM invoices WHERE id = ?', [id]);
 }
@@ -264,7 +286,7 @@ export async function getUserSettings(): Promise<UserSettings> {
   if (settings) return settings;
 
   return {
-    business_name: 'My Freelance Business',
+    business_name: 'My Business',
     business_email: '',
     business_address: '',
     tax_id: '',
@@ -278,12 +300,12 @@ export async function updateUserSettings(settings: UserSettings): Promise<void> 
   await db.runAsync(
     `UPDATE user_settings SET business_name = ?, business_email = ?, business_address = ?, tax_id = ?, logo_uri = ?, payment_instructions_default = ? WHERE id = 1`,
     [
-      settings.business_name,
-      settings.business_email,
-      settings.business_address,
-      settings.tax_id,
-      settings.logo_uri,
-      settings.payment_instructions_default,
+      settings.business_name || '',
+      settings.business_email || '',
+      settings.business_address || '',
+      settings.tax_id || '',
+      settings.logo_uri ?? null,
+      settings.payment_instructions_default || '',
     ]
   );
 }

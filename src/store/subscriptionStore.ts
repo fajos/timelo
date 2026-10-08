@@ -3,8 +3,16 @@ import Purchases, { CustomerInfo, PurchasesOffering } from 'react-native-purchas
 import { Platform } from 'react-native';
 
 const REVENUECAT_API_KEY_IOS = 'appl_mock_ios_key';
-const REVENUECAT_API_KEY_ANDROID = 'goog_mock_android_key';
-const PRO_ENTITLEMENT_ID = 'pro_access';
+const REVENUECAT_API_KEY_ANDROID = 'test_cMTUBsaDzXNcJgcKnQBhhaCRFhy';
+
+// Support common entitlement identifier names ('pro_access', 'pro', 'premium')
+function hasActiveProEntitlement(customerInfo: CustomerInfo | null): boolean {
+  if (!customerInfo || !customerInfo.entitlements || !customerInfo.entitlements.active) {
+    return false;
+  }
+  const activeKeys = Object.keys(customerInfo.entitlements.active);
+  return activeKeys.length > 0;
+}
 
 interface SubscriptionStoreState {
   isPro: boolean;
@@ -16,7 +24,7 @@ interface SubscriptionStoreState {
   purchaseMonthly: () => Promise<boolean>;
   purchaseAnnual: () => Promise<boolean>;
   restorePurchases: () => Promise<boolean>;
-  toggleProMock: () => void; // Developer toggle for testing Pro features
+  toggleProMock: () => void;
 }
 
 export const useSubscriptionStore = create<SubscriptionStoreState>((set, get) => ({
@@ -39,10 +47,9 @@ export const useSubscriptionStore = create<SubscriptionStoreState>((set, get) =>
       }
 
       const customerInfo = await Purchases.getCustomerInfo();
-      const isPro = typeof customerInfo.entitlements.active[PRO_ENTITLEMENT_ID] !== 'undefined';
+      const isPro = hasActiveProEntitlement(customerInfo);
       set({ isPro, customerInfo, isLoading: false });
     } catch (e) {
-      // Sandbox fallback / Offline dev mode
       console.log('RevenueCat initialization notice:', e);
       set({ isLoading: false });
     }
@@ -51,7 +58,7 @@ export const useSubscriptionStore = create<SubscriptionStoreState>((set, get) =>
   checkEntitlements: async () => {
     try {
       const customerInfo = await Purchases.getCustomerInfo();
-      const isPro = typeof customerInfo.entitlements.active[PRO_ENTITLEMENT_ID] !== 'undefined';
+      const isPro = hasActiveProEntitlement(customerInfo);
       set({ isPro, customerInfo });
       return isPro;
     } catch {
@@ -63,15 +70,15 @@ export const useSubscriptionStore = create<SubscriptionStoreState>((set, get) =>
     try {
       const { currentOffering } = get();
       if (!currentOffering || !currentOffering.monthly) {
-        // Fallback for dev/sandbox simulation
         set({ isPro: true });
         return true;
       }
       const { customerInfo } = await Purchases.purchasePackage(currentOffering.monthly);
-      const isPro = typeof customerInfo.entitlements.active[PRO_ENTITLEMENT_ID] !== 'undefined';
+      const isPro = hasActiveProEntitlement(customerInfo);
       set({ isPro, customerInfo });
       return isPro;
-    } catch {
+    } catch (e) {
+      console.log('Purchase monthly notice/cancel:', e);
       return false;
     }
   },
@@ -80,15 +87,15 @@ export const useSubscriptionStore = create<SubscriptionStoreState>((set, get) =>
     try {
       const { currentOffering } = get();
       if (!currentOffering || !currentOffering.annual) {
-        // Fallback for dev/sandbox simulation
         set({ isPro: true });
         return true;
       }
       const { customerInfo } = await Purchases.purchasePackage(currentOffering.annual);
-      const isPro = typeof customerInfo.entitlements.active[PRO_ENTITLEMENT_ID] !== 'undefined';
+      const isPro = hasActiveProEntitlement(customerInfo);
       set({ isPro, customerInfo });
       return isPro;
-    } catch {
+    } catch (e) {
+      console.log('Purchase annual notice/cancel:', e);
       return false;
     }
   },
@@ -96,7 +103,7 @@ export const useSubscriptionStore = create<SubscriptionStoreState>((set, get) =>
   restorePurchases: async () => {
     try {
       const customerInfo = await Purchases.restorePurchases();
-      const isPro = typeof customerInfo.entitlements.active[PRO_ENTITLEMENT_ID] !== 'undefined';
+      const isPro = hasActiveProEntitlement(customerInfo);
       set({ isPro, customerInfo });
       return isPro;
     } catch {

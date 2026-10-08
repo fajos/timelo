@@ -18,6 +18,7 @@ import {
   deleteClient,
   getProjectsByClient,
   insertProject,
+  deleteProject,
 } from '../db/repository';
 import { Client, Project } from '../types';
 import { formatCurrency } from '../services/pdfService';
@@ -44,15 +45,19 @@ export const ClientsScreen: React.FC = () => {
   const [projectName, setProjectName] = useState('');
 
   const loadData = async () => {
-    const fetchedClients = await getAllClients();
-    setClients(fetchedClients);
+    try {
+      const fetchedClients = await getAllClients();
+      setClients(fetchedClients);
 
-    const projectMap = new Map<string, Project[]>();
-    for (const c of fetchedClients) {
-      const p = await getProjectsByClient(c.id);
-      projectMap.set(c.id, p);
+      const projectMap = new Map<string, Project[]>();
+      for (const c of fetchedClients) {
+        const p = await getProjectsByClient(c.id);
+        projectMap.set(c.id, p);
+      }
+      setClientProjects(projectMap);
+    } catch (e: any) {
+      console.error('Error loading clients/projects:', e);
     }
-    setClientProjects(projectMap);
   };
 
   useEffect(() => {
@@ -76,32 +81,47 @@ export const ClientsScreen: React.FC = () => {
     const rateNum = parseFloat(hourlyRate) || 0;
     const rateCents = Math.round(rateNum * 100);
 
-    await insertClient({
-      name: clientName.trim(),
-      email: clientEmail.trim(),
-      hourly_rate_cents: rateCents,
-      currency,
-    });
+    try {
+      await insertClient({
+        name: clientName.trim(),
+        email: clientEmail.trim(),
+        hourly_rate_cents: rateCents,
+        currency,
+      });
 
-    setClientName('');
-    setClientEmail('');
-    setHourlyRate('50');
-    setAddClientModal(false);
-    loadData();
+      setClientName('');
+      setClientEmail('');
+      setHourlyRate('50');
+      setAddClientModal(false);
+      await loadData();
+    } catch (e: any) {
+      Alert.alert('Save Error', e?.message || 'Could not save client.');
+    }
   };
 
   const handleSaveProject = async () => {
-    if (!projectName.trim() || !activeClientId) return;
+    if (!projectName.trim()) {
+      Alert.alert('Project Name Required', 'Please enter a project name.');
+      return;
+    }
+    if (!activeClientId) {
+      Alert.alert('Error', 'No client selected for this project.');
+      return;
+    }
 
-    await insertProject({
-      client_id: activeClientId,
-      name: projectName.trim(),
-      color: '#3B82F6',
-    });
+    try {
+      await insertProject({
+        client_id: activeClientId,
+        name: projectName.trim(),
+        color: '#3B82F6',
+      });
 
-    setProjectName('');
-    setAddProjectModal(false);
-    loadData();
+      setProjectName('');
+      setAddProjectModal(false);
+      await loadData();
+    } catch (e: any) {
+      Alert.alert('Save Error', e?.message || 'Could not save project.');
+    }
   };
 
   const handleDeleteClient = (id: string, name: string) => {
@@ -112,7 +132,21 @@ export const ClientsScreen: React.FC = () => {
         style: 'destructive',
         onPress: async () => {
           await deleteClient(id);
-          loadData();
+          await loadData();
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteProject = (id: string, name: string) => {
+    Alert.alert('Delete Project', `Are you sure you want to delete project "${name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteProject(id);
+          await loadData();
         },
       },
     ]);
@@ -154,9 +188,19 @@ export const ClientsScreen: React.FC = () => {
 
           <View style={styles.projectPillContainer}>
             {projects.map((p) => (
-              <View key={p.id} style={styles.projectPill}>
+              <TouchableOpacity
+                key={p.id}
+                style={styles.projectPill}
+                onLongPress={() => handleDeleteProject(p.id, p.name)}
+              >
                 <Text style={styles.projectPillText}>{p.name}</Text>
-              </View>
+                <TouchableOpacity
+                  style={{ marginLeft: 6 }}
+                  onPress={() => handleDeleteProject(p.id, p.name)}
+                >
+                  <Ionicons name="close-circle" size={14} color="#94A3B8" />
+                </TouchableOpacity>
+              </TouchableOpacity>
             ))}
             {projects.length === 0 && (
               <Text style={styles.noProjectsText}>No projects created under this client yet.</Text>
@@ -391,6 +435,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   projectPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#F1F5F9',
     paddingHorizontal: 10,
     paddingVertical: 4,

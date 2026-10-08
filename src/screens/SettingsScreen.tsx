@@ -19,6 +19,7 @@ import { PaywallModal } from '../components/PaywallModal';
 export const SettingsScreen: React.FC = () => {
   const { isPro } = useSubscriptionStore();
   const [paywallVisible, setPaywallVisible] = useState(false);
+  const [paywallReason, setPaywallReason] = useState<string>('');
 
   const [businessName, setBusinessName] = useState('');
   const [businessEmail, setBusinessEmail] = useState('');
@@ -42,21 +43,28 @@ export const SettingsScreen: React.FC = () => {
   }, []);
 
   const handleSave = async () => {
+    if (logoUri.trim() && !isPro) {
+      setPaywallReason('Custom business logo on invoices is a Timelo Pro feature. Upgrade to unlock!');
+      setPaywallVisible(true);
+      return;
+    }
+
     const updated: UserSettings = {
       business_name: businessName,
       business_email: businessEmail,
       business_address: businessAddress,
       tax_id: taxId,
-      logo_uri: logoUri || null,
+      logo_uri: isPro ? logoUri : null,
       payment_instructions_default: paymentInstructions,
     };
 
     await updateUserSettings(updated);
-    Alert.alert('Settings Saved', 'Your business profile and payment details have been updated.');
+    Alert.alert('Settings Saved', 'Your business profile details have been updated.');
   };
 
   const handleExportTimeEntries = async () => {
     if (!isPro) {
+      setPaywallReason('CSV data export is a Timelo Pro feature. Upgrade to export your timesheets!');
       setPaywallVisible(true);
       return;
     }
@@ -69,6 +77,7 @@ export const SettingsScreen: React.FC = () => {
 
   const handleExportInvoices = async () => {
     if (!isPro) {
+      setPaywallReason('CSV data export is a Timelo Pro feature. Upgrade to export your invoices!');
       setPaywallVisible(true);
       return;
     }
@@ -87,16 +96,19 @@ export const SettingsScreen: React.FC = () => {
         {/* Subscription Tier Banner */}
         <TouchableOpacity
           style={[styles.proCard, isPro && styles.proCardUnlocked]}
-          onPress={() => setPaywallVisible(true)}
+          onPress={() => {
+            setPaywallReason('Upgrade to Timelo Pro for unlimited clients, clean PDFs & logo branding!');
+            setPaywallVisible(true);
+          }}
         >
           <View style={styles.proRow}>
             <Ionicons name="star" size={24} color={isPro ? '#10B981' : '#F59E0B'} />
             <View style={{ marginLeft: 12, flex: 1 }}>
-              <Text style={styles.proTitle}>{isPro ? 'Pro Subscription Active' : 'Free Tier'}</Text>
+              <Text style={styles.proTitle}>{isPro ? 'Timelo Pro Active' : 'Free Tier'}</Text>
               <Text style={styles.proSub}>
                 {isPro
                   ? 'Unlimited clients, clean PDFs & logo branding unlocked.'
-                  : 'Upgrade for $5.99/mo or $39/year to unlock unlimited clients & clean PDFs.'}
+                  : 'Upgrade for $5.99/mo or $39/year for unlimited clients, clean PDFs, and CSV exports.'}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#64748B" />
@@ -141,12 +153,33 @@ export const SettingsScreen: React.FC = () => {
             placeholder="US123456789"
           />
 
-          <Text style={[styles.label, { marginTop: 10 }]}>Logo Image URL (Pro)</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+            <Text style={styles.label}>Logo Image URL</Text>
+            {!isPro && (
+              <TouchableOpacity
+                style={styles.lockBadge}
+                onPress={() => {
+                  setPaywallReason('Custom business logo on invoices requires Timelo Pro.');
+                  setPaywallVisible(true);
+                }}
+              >
+                <Ionicons name="lock-closed" size={10} color="#B45309" />
+                <Text style={styles.lockBadgeText}>PRO ONLY</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <TextInput
             style={styles.input}
             value={logoUri}
             onChangeText={setLogoUri}
             placeholder="https://example.com/my-logo.png"
+            editable={isPro}
+            onTouchStart={() => {
+              if (!isPro) {
+                setPaywallReason('Custom business logo on invoices requires Timelo Pro.');
+                setPaywallVisible(true);
+              }
+            }}
           />
 
           <Text style={[styles.label, { marginTop: 10 }]}>Default Payment Instructions</Text>
@@ -165,8 +198,22 @@ export const SettingsScreen: React.FC = () => {
 
         {/* Local Data Export (Pro) */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Data Backup & Export (Pro)</Text>
-          <Text style={styles.exportSub}>Export your data anytime to standard CSV files.</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={styles.cardTitle}>Data Export (CSV)</Text>
+            {!isPro && (
+              <TouchableOpacity
+                style={styles.lockBadge}
+                onPress={() => {
+                  setPaywallReason('CSV data export is a Timelo Pro feature.');
+                  setPaywallVisible(true);
+                }}
+              >
+                <Ionicons name="lock-closed" size={10} color="#B45309" />
+                <Text style={styles.lockBadgeText}>PRO ONLY</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={styles.exportSub}>Export your timesheet and invoice records into standard CSV files.</Text>
 
           <TouchableOpacity style={styles.exportBtn} onPress={handleExportTimeEntries}>
             <Ionicons name="document-text-outline" size={18} color="#2563EB" />
@@ -183,7 +230,7 @@ export const SettingsScreen: React.FC = () => {
       <PaywallModal
         visible={paywallVisible}
         onClose={() => setPaywallVisible(false)}
-        reason="Upgrade to Pro for unlimited clients, clean PDF invoices with your custom logo, and CSV data exports!"
+        reason={paywallReason || 'Upgrade to Timelo Pro for unlimited clients, clean PDF invoices with custom logo, and CSV data exports!'}
       />
     </SafeAreaView>
   );
@@ -252,6 +299,20 @@ const styles = StyleSheet.create({
     color: '#64748B',
     textTransform: 'uppercase',
     marginBottom: 4,
+  },
+  lockBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  lockBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#B45309',
+    marginLeft: 3,
   },
   input: {
     backgroundColor: '#F8FAFC',

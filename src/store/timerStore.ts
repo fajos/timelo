@@ -49,18 +49,25 @@ export const useTimerStore = create<TimerStoreState>((set, get) => ({
     const endMs = new Date(endTime).getTime();
     const durationSeconds = Math.max(1, Math.floor((endMs - startMs) / 1000));
 
-    const newEntry = await insertTimeEntry({
-      project_id: activeTimer.project_id,
-      client_id: activeTimer.client_id,
-      start_time: activeTimer.start_time,
-      end_time: endTime,
-      duration_seconds: durationSeconds,
-      is_manual: false,
-      billed_invoice_id: null,
-      notes: activeTimer.notes,
-    });
+    let newEntry: TimeEntry | null = null;
+    try {
+      newEntry = await insertTimeEntry({
+        project_id: activeTimer.project_id || '',
+        client_id: activeTimer.client_id || '',
+        start_time: activeTimer.start_time,
+        end_time: endTime,
+        duration_seconds: durationSeconds,
+        is_manual: false,
+        billed_invoice_id: null,
+        notes: activeTimer.notes || '',
+      });
+    } catch (e) {
+      console.error('Error saving time entry on timer stop:', e);
+    } finally {
+      // Guarantee timer is cleared from Zustand state so timer UI stops
+      set({ activeTimer: null, elapsedSeconds: 0 });
+    }
 
-    set({ activeTimer: null, elapsedSeconds: 0 });
     return newEntry;
   },
 
